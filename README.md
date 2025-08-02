@@ -1,4 +1,4 @@
-# Spotify Playlist Cover Downloader
+# Your Spotify Playlist Cover Downloader
 
 A Python script that downloads cover images from your Spotify playlists. 
 Downloads the highest resolution images available and saves them locally with the playlist name as the filename.
