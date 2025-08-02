@@ -1,0 +1,16 @@
+spotify_auth.toml
+playlist_covers
+my_covers
+.cache #spotipy
+.idea
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
