@@ -1,8 +1,10 @@
 spotify_auth.toml
 playlist_covers
 my_covers
-.cache #spotipy
 .idea
+
+#spotipy
+.cache
 
 # Python-generated files
 __pycache__/
