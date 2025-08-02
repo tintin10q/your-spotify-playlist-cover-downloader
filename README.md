@@ -1,8 +1,11 @@
 # Spotify Playlist Cover Downloader
 
 A Python script that downloads cover images from your Spotify playlists. 
-Do you want to download the covers from someone else’s playlist? See []()
 Downloads the highest resolution images available and saves them locally with the playlist name as the filename.
+
+> [!Tip]
+> Do you want to download the covers from someone else’s playlist? See [wip]()
+
 
 ## Features
 
@@ -30,7 +33,7 @@ pip install spotipy requests pillow aiohttp asyncio
 
 ## Setup
 
-0. Clone the repo and open a shell in the directory of the repo
+0. **Clone the repo** `git clone git@github.com:tintin10q/your-spotify-playlist-cover-downloader.git` and open a shell in the directory of the repo
 
 1. **Create a Spotify App**
    - Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
