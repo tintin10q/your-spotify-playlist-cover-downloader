@@ -1,31 +1,30 @@
-# Your Spotify Playlist Cover Downloader
+# Spotify Playlist Cover Downloader
 
-A Python script that downloads cover images from your Spotify playlists. 
+A Python script that downloads cover images from your or others Spotify playlists. 
 Downloads the highest resolution images available and saves them locally with the playlist name as the filename.
 
-> [!Tip]
-> Do you want to download the covers from someone else’s playlist? See [wip]()
+There are two scripts here. 
 
+- [download_my_covers.py](./download_my_covers.py) downloads your playlist images. **Also the private ones!** 
+- [download_public_covers.py](./download_public_covers.py) downloads anyone’s **public** playlist images. (takes spotify id as input)
 
 ## Features
 
-- Downloads cover images from playlists you've created
-- Async implementation for concurrent downloads
-- Batched downloads to respect rate limits
-- Handles both your private and public playlists
+- Downloads all private and public cover images from playlists you've created
+- Downloads all cover images from anyone’s playlists
+- Async implementation for fast concurrent downloads
 - Sanitizes filenames for filesystem compatibility
-- Supports JPG, PNG, and WebP formats
-- Configuration via TOML `spotify_auth.toml` file
+- Easy configuration via TOML file
 
 ## Installation
 
-### uv
+### With uv
 
 ```shell
 uv sync
 ```
 
-### pip 
+### With pip
 
 ```shell
 pip install spotipy requests pillow aiohttp asyncio
@@ -52,39 +51,47 @@ pip install spotipy requests pillow aiohttp asyncio
 
 3. **Run**
    ```shell
-    python download_my_covers.py
+   python download_public_covers.py spotify_id
    ```
-   or with uv
-     ```shell
-    uv run python download_my_covers.py
-     ```
-   
+   or depending on if you want to download your own covers including the private ones:
+   ```shell
+   python download_my_covers.py 
+   ```
+
 The first run will open a browser for Spotify authentication. 
-Paste the resulting url into the program.
-Subsequent runs use the stored token in `.cache`.
+Paste the url you where directed to into the program
+Subsequent runs use the stored token.
 
-## What It Downloads
+## What Gets Downloaded?
 
+### download_my_covers.py
 - Playlists you created (public and private)
 - Collaborative playlists you own
 - Does not download playlists created by others
+
+### download_public_covers.py
+- Public playlists owned by the specified user
+- Does not access private playlists
+- Only downloads playlists created by that user (not followed playlists)
 
 ## Output
 
 Images are saved to a `playlist_covers/` directory:
 ```
-playlist_covers/
-├── Playlist Name 1.jpg
-├── Another Playlist.png
-└── Third Playlist.webp
+📁 playlist_covers/
+└── 📁 <spotify_id>
+      ├── Playlist Name 1.jpg
+      ├── Another Playlist.png
+      └── Third Playlist.webp
 ```
 
 ## Configuration
 
-The script uses these [OAuth scopes](https://developer.spotify.com/documentation/web-api/concepts/scopes):
-
+The [download_my_covers.py](download_my_covers.py) script uses these [OAuth scopes](https://developer.spotify.com/documentation/web-api/concepts/scopes):
 - `playlist-read-private` - Access to private playlists
 - `playlist-read-collaborative` - Access to collaborative playlists
+
+The other script does not need any OAuth scopes.
 
 ## Troubleshooting
 
@@ -96,6 +103,7 @@ The script uses these [OAuth scopes](https://developer.spotify.com/documentation
 - Check that redirect URI is added to your Spotify app settings
 
 **No playlists found**
+
 - Script only downloads playlists you own, not playlists you follow
 
 ## Requirements

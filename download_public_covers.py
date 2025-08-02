@@ -1,11 +1,12 @@
 import asyncio
+import sys
 from itertools import batched
 from pathlib import Path
 
 import aiofiles
 import httpx
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyClientCredentials
 import os
 import re
 import tomllib
@@ -13,6 +14,7 @@ from PIL import Image
 from io import BytesIO
 
 RATE_LIMIT = 20
+
 
 def sanitize_filename(filename: str) -> str:
     """Remove or replace characters that are invalid in filenames"""
@@ -23,63 +25,69 @@ def sanitize_filename(filename: str) -> str:
     # Limit length to avoid filesystem issues
     return filename[:200] if len(filename) > 200 else filename
 
+
 def get_largest_image(images):
     """Get the URL of the largest image from Spotify's image array"""
     if not images:
         return None
-    
+
     # Spotify returns images sorted by size (largest first), but let's be safe
     largest = max(images, key=lambda x: (x.get('width', 0) or 0) * (x.get('height', 0) or 0))
     return largest['url']
 
-async def download_playlist_covers(client_id, client_secret, redirect_uri, download_folder='playlist_covers'):
+
+async def download_public_playlist_covers(client_id, client_secret, user_id, download_folder='playlist_covers'):
     """
-    Download cover images for all user-created playlists
-    
+    Download cover images for all public playlists of a given user
+
     Args:
         client_id: Your Spotify app client ID
         client_secret: Your Spotify app client secret
-        redirect_uri: Your app's redirect URI
+        user_id: Spotify user ID to download playlists from
         download_folder: Folder to save images (default: 'playlist_covers')
     """
 
-
-    # Set up Spotify authentication
-    scope = "playlist-read-private playlist-read-collaborative"
-    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
+    # Set up Spotify authentication (client credentials for public data)
+    client_credentials_manager = SpotifyClientCredentials(
         client_id=client_id,
-        client_secret=client_secret,
-        redirect_uri=redirect_uri,
-        scope=scope
-    ))
-    
+        client_secret=client_secret
+    )
+    sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
+
 
     try:
-        # Get current user info
-        user = sp.current_user()
-        user_id = user['id']
-        print(f"Fetching playlists for user: {user['display_name']} ({user_id})")
+        # Get user info
+        try:
+            user = sp.user(user_id)
+            print(f"Fetching public playlists for user: {user['display_name']} ({user_id})")
+        except Exception:
+            print(f"Fetching public playlists for user: {user_id}")
 
         # Create download folder if it doesn't exist
         download_folder = Path(download_folder) / Path(user_id)
         os.makedirs(download_folder, exist_ok=True)
 
-        # Get all playlists
+        # Get all public playlists for the user
         playlists = []
-        results = sp.current_user_playlists(limit=50)
-        
+        results = sp.user_playlists(user_id, limit=50)
+
         while results:
+            # Filter for public playlists only (API returns only public when using client credentials)
             playlists.extend(results['items'])
             if results['next']:
                 results = sp.next(results)
             else:
                 break
-        
-        # Filter for user-created playlists only
+
+        # Filter for playlists owned by the specified user
         user_playlists = [p for p in playlists if p['owner']['id'] == user_id]
-        
-        print(f"Found {len(user_playlists)} user-created playlists")
-        
+
+        print(f"Found {len(user_playlists)} public playlists")
+
+        if not user_playlists:
+            print("No public playlists found for this user")
+            return
+
         successful_downloads = 0
         missing_covers = 0
         missing_url = 0
@@ -144,7 +152,6 @@ async def download_playlist_covers(client_id, client_secret, redirect_uri, downl
                 except Exception as e:
                     print(f"❌ Error processing {playlist_name}: {e}")
 
-
             download_jobs = (download_playlist(playlist) for playlist in user_playlists)
             batched_download_jobs = batched(download_jobs, RATE_LIMIT)
 
@@ -155,61 +162,80 @@ async def download_playlist_covers(client_id, client_secret, redirect_uri, downl
               f"{f', {missing_url} missing url' if missing_url else ''}"
               f"{f', {missing_covers} missing covers' if missing_covers else ''}.")
         print(f"Images saved to: {os.path.abspath(download_folder)}")
-        
+
+    except spotipy.exceptions.SpotifyException as e:
+        if e.http_status == 404:
+            print(f"❌ User '{user_id}' not found")
+        else:
+            print(f"❌ Spotify API error: {e}")
     except Exception as e:
         print(f"❌ Error: {e}")
         raise
+
 
 def load_credentials():
     """Load Spotify credentials from spotify_auth.toml file"""
     try:
         with open("spotify_auth.toml", "rb") as f:
             config = tomllib.load(f)
-        
+
         client_id = config.get("client_id")
         client_secret = config.get("client_secret")
-        redirect_uri = config.get("redirect_uri", "http://localhost:8888/callback")
-        
+
         if not client_id or not client_secret:
             raise ValueError("client_id and client_secret must be provided in spotify_auth.toml")
-        
-        return client_id, client_secret, redirect_uri
-        
+
+        return client_id, client_secret
+
     except FileNotFoundError:
         print("❌ spotify_auth.toml file not found!")
         print("\n📝 Please create a spotify_auth.toml file with the following format:")
         print("""
 client_id = "your_client_id_here"
 client_secret = "your_client_secret_here"
-# Optional: redirect_uri = "http://localhost:8888/callback"
 """)
         print("\n📝 Setup instructions:")
         print("1. Go to https://developer.spotify.com/dashboard")
         print("2. Create a new app")
         print("3. Copy the Client ID and Client Secret")
-        print("4. Add 'http://localhost:8888/callback' as a Redirect URI in your app settings")
-        print("5. Create the spotify_auth.toml file with your credentials")
-        return None, None, None
-    
+        print("4. Create the spotify_auth.toml file with your credentials")
+        return None, None
+
     except tomllib.TOMLDecodeError as e:
         print(f"❌ Error reading spotify_auth.toml: {e}")
-        return None, None, None
-    
+        return None, None
+
     except Exception as e:
         print(f"❌ Error loading credentials: {e}")
-        return None, None, None
+        return None, None
+
 
 def main():
     """
-    Main function - loads credentials from spotify_auth.toml
+    Main function - loads credentials from spotify_auth.toml and user ID from command line
     """
-    
-    client_id, client_secret, redirect_uri = load_credentials()
-    
+
+    # Check command line arguments
+    if len(sys.argv) != 2:
+        filename = Path(sys.argv[0]).name
+        print("You did not give me a spotify user id. Whose covers should I download?")
+        print("Get someones id by going to their profile and click share.")
+        print("The id is the last part of the link: https://open.spotify.com/user/<id_here> (ignore the ?si=.... part)\n")
+        print(f"Usage: python {filename} <spotify_user_id>")
+        print("\nExample:")
+        print(f"  python {filename} spotify")
+        print(f"  python {filename} 1234567890")
+        sys.exit(1)
+
+    user_id = sys.argv[1]
+
+    client_id, client_secret = load_credentials()
+
     if not client_id or not client_secret:
         return
-    
-    asyncio.run(download_playlist_covers(client_id, client_secret, redirect_uri))
+
+    asyncio.run(download_public_playlist_covers(client_id, client_secret, user_id))
+
 
 if __name__ == "__main__":
     main()
