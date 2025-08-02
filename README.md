@@ -32,7 +32,7 @@ pip install spotipy requests pillow aiohttp asyncio
 
 ## Setup
 
-0. **Clone the repo** `git clone git@github.com:tintin10q/your-spotify-playlist-cover-downloader.git` and open a shell in the directory of the repo
+0. **Clone the repo** `git clone git@github.com:tintin10q/spotify-playlist-cover-downloader.git` and open a shell in the directory of the repo
 
 1. **Create a Spotify App**
    - Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
